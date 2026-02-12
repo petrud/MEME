@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Solana Memecoin Cockpit</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg0:#060a11;--bg1:#0c1220;--bg2:#131b2e;--bg3:#1a2540;--bdr:#1c2844;--bdr2:#2a3a5c;--t1:#eef2ff;--t2:#94a3b8;--t3:#5a6a85;--grn:#10b981;--grn2:#064e3b;--red:#f43f5e;--red2:#4c0519;--amb:#f59e0b;--amb2:#78350f;--blu:#3b82f6;--blu2:#172554;--pur:#a78bfa;--mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif;--r:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg0);color:var(--t1);height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* STATUS BAR */
+.sbar{display:flex;align-items:center;padding:6px 14px;gap:10px;border-bottom:1px solid var(--bdr);background:var(--bg1);flex-shrink:0;z-index:100}
+.mpill{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:1.5px}
+.mpill.paper{background:var(--blu2);border:2px solid #1e40af;color:var(--blu)}
+.mpill.live{background:var(--red2);border:2px solid #991b1b;color:var(--red);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px rgba(244,63,94,.2)}50%{box-shadow:0 0 20px rgba(244,63,94,.4)}}
+.mdot{width:7px;height:7px;border-radius:50%}
+.mdot.paper{background:var(--blu)}.mdot.live{background:var(--red);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.3}}
+.si{display:flex;flex-direction:column;align-items:center;gap:1px;padding:0 10px;border-right:1px solid var(--bdr)}
+.si:last-of-type{border-right:none}
+.si-l{font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;font-family:var(--mono)}
+.si-v{font-size:12px;font-weight:600;font-family:var(--mono)}
+.grn{color:var(--grn)}.red{color:var(--red)}.amb{color:var(--amb)}.blu{color:var(--blu)}
+.killbtn{margin-left:auto;background:var(--red2);border:2px solid var(--red);color:var(--red);padding:5px 14px;border-radius:var(--r);font-family:var(--mono);font-weight:700;font-size:11px;cursor:pointer;letter-spacing:1px;transition:all .2s}
+.killbtn:hover{background:var(--red);color:#fff}
+
+/* LAYOUT */
+.main{display:flex;flex:1;overflow:hidden}
+.side{width:200px;background:var(--bg1);border-right:1px solid var(--bdr);padding:6px;overflow-y:auto;flex-shrink:0}
+.content{flex:1;overflow-y:auto;padding:18px 22px}
+.logo{padding:10px 12px 14px;border-bottom:1px solid var(--bdr);margin-bottom:6px}
+.logo-t{font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px}
+.logo-s{font-size:10px;color:var(--t3);margin-top:2px;font-family:var(--mono)}
+
+/* NAV */
+.ni{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;color:var(--t2);font-size:12px;font-weight:500;transition:all .12s;margin-bottom:1px}
+.ni:hover{background:var(--bg3);color:var(--t1)}.ni.act{background:var(--blu2);color:var(--blu)}
+.ni-i{font-size:14px;width:18px;text-align:center}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:16px;margin-bottom:14px}
+.card-t{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:1100px){.g4{grid-template-columns:1fr 1fr}.side{display:none}}
+
+/* METRICS */
+.met{background:var(--bg3);padding:14px;border-radius:var(--r);border:1px solid var(--bdr)}
+.met-l{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;font-family:var(--mono)}
+.met-v{font-size:22px;font-weight:700;font-family:var(--mono);margin-top:3px}
+.met-s{font-size:10px;color:var(--t3);margin-top:3px}
+
+/* GAUGE */
+.gauge{position:relative;width:100%;height:6px;background:var(--bg1);border-radius:3px;overflow:hidden;margin-top:6px}
+.gauge-f{height:100%;border-radius:3px;transition:width .5s}
+
+/* REGIME */
+.reg{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:16px;font-family:var(--mono);font-size:11px;font-weight:600}
+.reg.mania{background:rgba(16,185,129,.12);color:var(--grn);border:1px solid var(--grn2)}
+.reg.normal{background:rgba(59,130,246,.12);color:var(--blu);border:1px solid var(--blu2)}
+.reg.cold{background:rgba(90,106,133,.12);color:var(--t3);border:1px solid var(--bdr)}
+
+/* DECISION CARDS */
+.dc{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:12px;margin-bottom:6px;cursor:pointer;transition:all .12s}
+.dc:hover{border-color:var(--bdr2);background:var(--bg3)}
+.dc.trade{border-left:3px solid var(--grn)}.dc.skip{border-left:3px solid var(--t3)}
+.vb{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;letter-spacing:1px}
+.vb.trade{background:var(--grn2);color:var(--grn)}.vb.skip{background:rgba(90,106,133,.2);color:var(--t3)}
+
+/* FILTERS */
+.fr{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px}
+.fr-i{font-size:12px}.fr-i.pass{color:var(--grn)}.fr-i.fail{color:var(--red)}
+.fr-n{color:var(--t2);min-width:120px}.fr-v{font-family:var(--mono);font-size:10px;color:var(--t1)}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;font-family:var(--mono);padding:7px 10px;text-align:left;border-bottom:1px solid var(--bdr)}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--bdr);font-size:12px;font-family:var(--mono)}
+.tbl tr:hover{background:var(--bg3)}
+
+/* ALERTS */
+.alrt{padding:8px 12px;border-radius:var(--r);margin-bottom:6px;font-size:11px;display:flex;align-items:flex-start;gap:6px}
+.alrt.crit{background:rgba(244,63,94,.08);border:1px solid var(--red2);color:var(--red)}
+.alrt.warn{background:rgba(245,158,11,.08);border:1px solid var(--amb2);color:var(--amb)}
+.alrt.info{background:rgba(59,130,246,.08);border:1px solid var(--blu2);color:var(--blu)}
+
+/* RATIONALE */
+.rat{background:var(--bg3);border-radius:var(--r);padding:12px;border-left:3px solid var(--blu)}
+.rat-i{display:flex;align-items:flex-start;gap:6px;padding:3px 0;font-size:12px;color:var(--t2)}
+
+/* CHART */
+.chart{width:100%;height:180px;background:var(--bg3);border-radius:var(--r);border:1px solid var(--bdr);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:12px}
+
+/* BUTTONS */
+.btn{padding:6px 14px;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;border:1px solid transparent}
+.btn-p{background:var(--blu);color:#fff}.btn-p:hover{background:#2563eb}
+.btn-d{background:var(--red2);color:var(--red);border-color:var(--red)}.btn-d:hover{background:var(--red);color:#fff}
+.btn-g{background:transparent;color:var(--t2);border-color:var(--bdr)}.btn-g:hover{background:var(--bg3);color:var(--t1)}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(3px)}
+.modal{background:var(--bg1);border:1px solid var(--bdr2);border-radius:12px;padding:28px;width:460px;max-width:92vw}
+.modal h2{margin-bottom:14px;font-size:18px}
+.modal input{width:100%;padding:8px 12px;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--t1);font-family:var(--mono);font-size:14px;margin:10px 0}
+.modal input:focus{outline:none;border-color:var(--red)}
+
+.sh{font-size:16px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.ss{font-size:12px;color:var(--t3);margin-bottom:16px}
+
+/* ANIMATIONS */
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fi{animation:fadeIn .25s ease-out}
+@keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.sli{animation:slideIn .15s ease-out}
+
+/* RISK BARS */
+.rbar{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px}
+.rbar-name{min-width:140px;color:var(--t2)}
+.rbar-gauge{flex:1;height:6px;background:var(--bg1);border-radius:3px;overflow:hidden;position:relative}
+.rbar-fill{height:100%;border-radius:3px;transition:width .4s}
+.rbar-val{font-family:var(--mono);font-size:11px;min-width:70px;text-align:right}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.4/babel.min.js"></script>
+<script type="text/babel">
+const{useState,useEffect,useCallback,useRef}=React;
+const API='http://localhost:3001/api';
+
+// ========== MOCK DATA ==========
+const MOCK={
+  regime:{regime:'NORMAL',regimeScore:52,reason:'Moderate activity: 8 launches, 45 SOL volume in 5min',pumpfunLaunchRate:8,pumpfunVolumeProxy:45},
+  risk:{equitySol:9.87,startOfDayEquity:10,todayPnlSol:-0.13,todayPnlPct:-1.3,todayDrawdownPct:-1.3,currentExposureSol:0.02,currentExposurePct:0.2,openPositionCount:1,todayTradeCount:3,hourTradeCount:1,consecutiveLosses:1,isHalted:false,limits:{maxRiskPerTradePct:0.2,maxExposurePct:1.0,dailyMaxDrawdownPct:2.0,maxTradesPerHour:3,maxTradesPerDay:10,maxConsecutiveLosses:3}},
+  decisions:['MOONCAT','SHIBX','PEPEMOON','BONKINU','WIFHAT','CATGOLD','SOLDOG','POPCAT2'].map((s,i)=>({
+    id:'d'+i,tokenMint:'m'+i,tokenSymbol:s,timestamp:Date.now()-i*30000,
+    verdict:i===0?'TRADE':'SKIP',
+    summaryBullets:i===0?['All 13 filters passed','5.2 unique buyers/min — strong breadth','120bps slippage, 12 SOL depth']:[(2+i)+' filter(s) failed','Insufficient liquidity','Concentration too high'],
+    filters:[
+      {name:'Regime Gate',result:'PASS',value:52,threshold:40,reason:'Active'},
+      {name:'Min Liquidity',result:i<3?'PASS':'FAIL',value:i<3?12:2,threshold:5,reason:''},
+      {name:'Concentration',result:i<2?'PASS':'FAIL',value:i<2?45:78,threshold:70,reason:''},
+      {name:'Creator Behavior',result:'PASS',value:false,threshold:false,reason:'Normal'},
+      {name:'Buyer Breadth',result:i===0?'PASS':'FAIL',value:i===0?5.2:1.1,threshold:3,reason:''},
+      {name:'Buy Distribution',result:i<2?'PASS':'FAIL',value:i<2?0.6:0.15,threshold:0.3,reason:''},
+      {name:'Execution Risk',result:'PASS',value:120,threshold:300,reason:'OK'},
+      {name:'Spread',result:'PASS',value:200,threshold:500,reason:'OK'},
+      {name:'Grad Timing',result:i<4?'PASS':'FAIL',value:i<4?45:800,threshold:'30-600s',reason:''},
+      {name:'Buy Pressure',result:i<3?'PASS':'FAIL',value:i<3?0.3:-0.1,threshold:0,reason:''},
+      {name:'Risk Limits',result:'PASS',value:'OK',threshold:'all OK',reason:''},
+      {name:'RPC Health',result:'PASS',value:'200ms',threshold:'<2000ms',reason:''},
+      {name:'No Duplicate',result:'PASS',value:false,threshold:false,reason:''},
+    ],
+    riskImpact:i===0?{riskPct:0.2,maxLossSol:0.005,newExposurePct:0.4,withinLimits:true}:null,
+  })),
+  positions:[{
+    id:'p1',tokenMint:'m0',tokenSymbol:'MOONCAT',status:'OPEN',
+    entryPrice:0.0000012,currentPrice:0.0000018,entryAmountSol:0.02,
+    remainingTokens:16666,unrealizedPnlPct:50,unrealizedPnlSol:0.01,
+    realizedPnlSol:0,stopLossPrice:0.0000009,highWaterMark:0.0000019,
+    trailingStopPct:15,entryTime:Date.now()-300000,isPaper:true,
+    takeProfitLevels:[{pctGain:50,sellPct:30,triggered:false},{pctGain:100,sellPct:30,triggered:false}],
+  }],
+  orders:[
+    {id:'o1',tokenSymbol:'MOONCAT',side:'BUY',source:'ENTRY_SIGNAL',amountSol:0.02,executedPrice:0.0000012,slippageBps:120,feeSol:0.00006,status:'CONFIRMED',isPaper:true,createdAt:Date.now()-300000,txSignature:'paper_abc123'},
+    {id:'o2',tokenSymbol:'PEPEMOON',side:'BUY',source:'ENTRY_SIGNAL',amountSol:0.02,status:'FAILED',isPaper:true,createdAt:Date.now()-500000,errorMessage:'Simulated tx failure'},
+  ],
+  incidents:[
+    {id:'i1',timestamp:Date.now()-600000,severity:'WARNING',category:'CONSECUTIVE_LOSSES',message:'2 consecutive losses detected',autoAction:'Monitoring',resolved:false},
+    {id:'i2',timestamp:Date.now()-3600000,severity:'INFO',category:'REGIME',message:'Regime shifted to NORMAL from COLD',resolved:true},
+  ],
+  equity:Array.from({length:48},(_,i)=>({timestamp:Date.now()-i*1800000,equity:10-Math.sin(i/5)*.3+Math.random()*.1,drawdown:-(Math.random()*2),exposure:Math.random()*.5})).reverse(),
+};
+
+// ========== DATA HOOK ==========
+function useData(ep,int){
+  const[d,setD]=useState(null);
+  const fetch_=useCallback(async()=>{
+    try{const r=await fetch(API+ep);const j=await r.json();if(j.ok)setD(j.data)}catch{}
+  },[ep]);
+  useEffect(()=>{fetch_();if(int){const id=setInterval(fetch_,int);return()=>clearInterval(id)}},[fetch_,int]);
+  return d;
+}
+
+// ========== SMALL COMPONENTS ==========
+function Gauge({v,mx,c}){const p=Math.min(100,(v/mx)*100);const cl=p>80?'red':p>50?'amb':c||'grn';return <div className="gauge"><div className="gauge-f" style={{width:p+'%',background:`var(--${cl})`}}/></div>}
+function RegBadge({r}){const c=r.regime==='MANIA'?'mania':r.regime==='NORMAL'?'normal':'cold';const e=r.regime==='MANIA'?'🔥':r.regime==='NORMAL'?'📊':'❄️';return <div className={'reg '+c}>{e} {r.regime} ({r.regimeScore})</div>}
+
+// ========== STATUS BAR ==========
+function SBar({mode,state,risk,onKill}){
+  const pc=(risk?.todayPnlPct||0)>=0?'grn':'red';
+  return <div className="sbar">
+    <div className={'mpill '+(mode==='PAPER'?'paper':'live')}><div className={'mdot '+(mode==='PAPER'?'paper':'live')}/>{mode}</div>
+    <div className="si"><span className="si-l">State</span><span className={'si-v '+(state==='RUNNING'?'grn':state==='HALTED'?'red':'amb')}>{state}</span></div>
+    <div className="si"><span className="si-l">P&L</span><span className={'si-v '+pc}>{(risk?.todayPnlPct||0).toFixed(2)}%</span></div>
+    <div className="si"><span className="si-l">Drawdown</span><span className={'si-v '+(Math.abs(risk?.todayDrawdownPct||0)>1.5?'red':'grn')}>{(risk?.todayDrawdownPct||0).toFixed(2)}%</span></div>
+    <div className="si"><span className="si-l">Exposure</span><span className="si-v">{(risk?.currentExposurePct||0).toFixed(2)}%</span></div>
+    <div className="si"><span className="si-l">Positions</span><span className="si-v">{risk?.openPositionCount||0}</span></div>
+    <div className="si"><span className="si-l">Trades</span><span className="si-v">{risk?.todayTradeCount||0}</span></div>
+    <button className="killbtn" onClick={onKill}>⚠ KILL SWITCH</button>
+  </div>
+}
+
+// ========== NAV ==========
+const NAV=[
+  {id:'overview',i:'📊',l:'Overview'},{id:'radar',i:'📡',l:'Radar'},{id:'positions',i:'💼',l:'Positions'},
+  {id:'orders',i:'📋',l:'Orders & Fills'},{id:'risk',i:'🛡️',l:'Risk & Limits'},{id:'health',i:'🏥',l:'Health'},
+  {id:'paper',i:'📝',l:'Paper Stats'},{id:'settings',i:'⚙️',l:'Settings'},{id:'logs',i:'📜',l:'Logs'},
+];
+function Side({act,onNav,mode}){
+  return <div className="side">
+    <div className="logo"><div className="logo-t"><span style={{fontSize:18}}>🚀</span>Cockpit</div><div className="logo-s">v0.1.0 · {mode} mode</div></div>
+    {NAV.map(n=><div key={n.id} className={'ni'+(act===n.id?' act':'')} onClick={()=>onNav(n.id)}><span className="ni-i">{n.i}</span>{n.l}</div>)}
+  </div>
+}
+
+// ========== OVERVIEW PAGE ==========
+function Overview({risk:r,regime:rg,decisions:ds,positions:ps}){
+  r=r||MOCK.risk;rg=rg||MOCK.regime;
+  const reasons=rg.regimeScore>=40
+    ?['Market regime active — trading enabled',rg.pumpfunLaunchRate+' new tokens in last 5min','Volume proxy: '+(rg.pumpfunVolumeProxy||0).toFixed(1)+' SOL']
+    :['Market quiet — waiting for activity','Bot filters aggressively, this is normal','Regime score: '+rg.regimeScore+'/100'];
+  return <div className="fi">
+    <div className="sh">📊 Overview</div><div className="ss">Your trading cockpit at a glance</div>
+    <div className="g4" style={{marginBottom:14}}>
+      <div className="met"><div className="met-l">Equity</div><div className="met-v">{r.equitySol.toFixed(4)}</div><div className="met-s">SOL · Start: {r.startOfDayEquity.toFixed(2)}</div></div>
+      <div className="met"><div className="met-l">Today P&L</div><div className="met-v" style={{color:r.todayPnlPct>=0?'var(--grn)':'var(--red)'}}>{r.todayPnlPct>=0?'+':''}{r.todayPnlPct.toFixed(2)}%</div><div className="met-s">{r.todayPnlSol.toFixed(4)} SOL</div></div>
+      <div className="met"><div className="met-l">Exposure</div><div className="met-v">{r.currentExposurePct.toFixed(2)}%</div><Gauge v={r.currentExposurePct} mx={r.limits.maxExposurePct}/><div className="met-s">Max: {r.limits.maxExposurePct}%</div></div>
+      <div className="met"><div className="met-l">Drawdown</div><div className="met-v" style={{color:Math.abs(r.todayDrawdownPct)>1.5?'var(--red)':'var(--t1)'}}>{r.todayDrawdownPct.toFixed(2)}%</div><Gauge v={Math.abs(r.todayDrawdownPct)} mx={r.limits.dailyMaxDrawdownPct} c="red"/><div className="met-s">Kill switch at {r.limits.dailyMaxDrawdownPct}%</div></div>
+    </div>
+    <div className="g2">
+      <div>
+        <div className="card"><div className="card-t">🌡️ Market Regime</div><RegBadge r={rg}/><div style={{marginTop:10,fontSize:12,color:'var(--t2)'}}>{rg.reason}</div></div>
+        <div className="card"><div className="card-t">🧠 Autopilot Rationale</div><div className="rat">{reasons.map((x,i)=><div key={i} className="rat-i"><span>{i===0?'→':'·'}</span><span>{x}</span></div>)}</div></div>
+      </div>
+      <div>
+        <div className="card"><div className="card-t">📈 Equity Curve</div>
+          <div className="chart"><svg style={{position:'absolute',bottom:0,left:0,right:0,height:'70%',opacity:.4}} viewBox="0 0 100 40" preserveAspectRatio="none">
+            <defs><linearGradient id="eg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--blu)" stopOpacity=".3"/><stop offset="100%" stopColor="var(--blu)" stopOpacity="0"/></linearGradient></defs>
+            <path d="M0,35 L5,33 L10,30 L15,28 L20,32 L25,27 L30,25 L35,20 L40,22 L45,18 L50,15 L55,17 L60,12 L65,14 L70,10 L75,12 L80,8 L85,10 L90,6 L95,8 L100,5" fill="url(#eg)" stroke="var(--blu)" strokeWidth="1.5"/>
+          </svg><span style={{zIndex:1}}>Paper equity over time</span></div>
+        </div>
+        <div className="card"><div className="card-t">🔔 Alerts</div>
+          {r.isHalted?<div className="alrt crit">⛔ HALTED: {r.haltReason}</div>
+           :r.consecutiveLosses>=2?<div className="alrt warn">⚠️ {r.consecutiveLosses} consecutive losses. Pauses at {r.limits.maxConsecutiveLosses}.</div>
+           :<div className="alrt info">ℹ️ All systems nominal. Bot monitoring tokens.</div>}
+        </div>
+      </div>
+    </div>
+    <div className="card"><div className="card-t">💡 Guidance</div><div style={{fontSize:12,color:'var(--t2)',lineHeight:1.7}}>
+      {r.openPositionCount>0?"You have open positions — check the Positions tab to monitor P&L and stops."
+       :rg.regimeScore>=40?"Market is active. Bot is scanning. Check Radar to see token evaluations."
+       :"Market is quiet. Bot waits for activity before scanning. This is by design — we trade rarely and filter aggressively."}
+    </div></div>
+  </div>
+}
+
+// ========== RADAR PAGE ==========
+function Radar({decisions:ds}){
+  const[exp,setExp]=useState(null);
+  ds=ds||MOCK.decisions;
+  return <div className="fi">
+    <div className="sh">📡 Token Radar</div><div className="ss">Live stream of evaluated tokens. Click any row for the full decision card.</div>
+    {ds.map((d,i)=><div key={d.id} className={'dc '+d.verdict.toLowerCase()+' sli'} style={{animationDelay:i*40+'ms'}} onClick={()=>setExp(exp===d.id?null:d.id)}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span className={'vb '+d.verdict.toLowerCase()}>{d.verdict}</span>
+          <span style={{fontWeight:600,fontSize:13}}>{d.tokenSymbol}</span>
+          <span style={{fontSize:10,color:'var(--t3)',fontFamily:'var(--mono)'}}>{new Date(d.timestamp).toLocaleTimeString()}</span>
+        </div>
+        <span style={{fontSize:11,color:'var(--t3)',fontFamily:'var(--mono)'}}>{d.filters.filter(f=>f.result==='PASS').length}/{d.filters.length} ✓</span>
+      </div>
+      {exp===d.id&&<div style={{marginTop:8,paddingTop:10,borderTop:'1px solid var(--bdr)'}}>
+        <div style={{marginBottom:10}}>{d.summaryBullets.map((b,j)=><div key={j} style={{fontSize:12,color:'var(--t2)',padding:'2px 0',display:'flex',gap:6}}>•<span>{b}</span></div>)}</div>
+        <div style={{fontSize:10,fontWeight:600,color:'var(--t3)',marginBottom:6}}>FILTER CHECKLIST</div>
+        {d.filters.map((f,j)=><div key={j} className="fr">
+          <span className={'fr-i '+(f.result==='PASS'?'pass':'fail')}>{f.result==='PASS'?'✓':'✗'}</span>
+          <span className="fr-n">{f.name}</span>
+          <span className="fr-v">{typeof f.value==='number'?(f.value%1===0?f.value:f.value.toFixed(2)):String(f.value)}</span>
+          <span style={{color:'var(--t3)',fontSize:10,marginLeft:4}}>(need: {typeof f.threshold==='number'?f.threshold:String(f.threshold)})</span>
+        </div>)}
+        {d.riskImpact&&<div style={{marginTop:10,padding:8,background:'var(--bg3)',borderRadius:'var(--r)',fontSize:11}}>
+          <b>Risk:</b> {d.riskImpact.riskPct}% equity · Max loss: {d.riskImpact.maxLossSol.toFixed(4)} SOL · New exposure: {d.riskImpact.newExposurePct.toFixed(2)}%
+        </div>}
+      </div>}
+    </div>)}
+  </div>
+}
+
+// ========== POSITIONS PAGE ==========
+function Positions({positions:ps}){
+  ps=ps||MOCK.positions;
+  return <div className="fi">
+    <div className="sh">💼 Positions</div><div className="ss">Active and recent positions with real-time P&L tracking.</div>
+    {ps.length===0?<div className="card" style={{textAlign:'center',color:'var(--t3)',padding:30}}>No open positions. The bot will open positions when filters are met.</div>
+    :<table className="tbl"><thead><tr><th>Token</th><th>Entry</th><th>Current</th><th>P&L %</th><th>P&L SOL</th><th>Stop</th><th>Targets</th><th>Trail</th><th>Age</th><th>Actions</th></tr></thead>
+    <tbody>{ps.map(p=>{const age=Math.round((Date.now()-p.entryTime)/60000);return<tr key={p.id}>
+      <td><span style={{fontWeight:600}}>{p.tokenSymbol}</span>{p.isPaper&&<span style={{fontSize:9,color:'var(--blu)',marginLeft:6}}>PAPER</span>}</td>
+      <td>{p.entryPrice.toExponential(2)}</td>
+      <td>{p.currentPrice.toExponential(2)}</td>
+      <td style={{color:p.unrealizedPnlPct>=0?'var(--grn)':'var(--red)',fontWeight:600}}>{p.unrealizedPnlPct>=0?'+':''}{p.unrealizedPnlPct.toFixed(1)}%</td>
+      <td style={{color:p.unrealizedPnlSol>=0?'var(--grn)':'var(--red)'}}>{p.unrealizedPnlSol>=0?'+':''}{p.unrealizedPnlSol.toFixed(4)}</td>
+      <td>{p.stopLossPrice.toExponential(2)}</td>
+      <td>{p.takeProfitLevels.map(t=>(t.triggered?'✓':'○')+' +'+t.pctGain+'%').join(' ')}</td>
+      <td>{p.trailingStopPct}%</td>
+      <td>{age}m</td>
+      <td><button className="btn btn-d" style={{padding:'3px 8px',fontSize:10}}>Close</button></td>
+    </tr>})}</tbody></table>}
+  </div>
+}
+
+// ========== ORDERS PAGE ==========
+function Orders({orders:os}){
+  os=os||MOCK.orders;
+  return <div className="fi">
+    <div className="sh">📋 Orders & Fills</div><div className="ss">Execution history with slippage, fees, and transaction details.</div>
+    <table className="tbl"><thead><tr><th>Time</th><th>Token</th><th>Side</th><th>Source</th><th>Amount</th><th>Price</th><th>Slip</th><th>Fee</th><th>Status</th><th>Tx</th></tr></thead>
+    <tbody>{os.map(o=><tr key={o.id}>
+      <td style={{fontSize:10}}>{new Date(o.createdAt).toLocaleTimeString()}</td>
+      <td>{o.tokenSymbol}</td>
+      <td style={{color:o.side==='BUY'?'var(--grn)':'var(--red)'}}>{o.side}</td>
+      <td style={{fontSize:10}}>{o.source}</td>
+      <td>{(o.amountSol||0).toFixed(4)}</td>
+      <td>{o.executedPrice?o.executedPrice.toExponential(2):'—'}</td>
+      <td>{o.slippageBps?o.slippageBps+'bp':'—'}</td>
+      <td>{o.feeSol?(o.feeSol*1000).toFixed(2)+'m':'—'}</td>
+      <td><span style={{fontSize:10,padding:'1px 6px',borderRadius:3,background:o.status==='CONFIRMED'?'var(--grn2)':o.status==='FAILED'?'var(--red2)':'var(--amb2)',color:o.status==='CONFIRMED'?'var(--grn)':o.status==='FAILED'?'var(--red)':'var(--amb)'}}>{o.status}</span></td>
+      <td style={{fontSize:9}}>{o.txSignature?o.txSignature.slice(0,12)+'…':'—'}{o.isPaper&&<span style={{color:'var(--blu)',marginLeft:4}}>📝</span>}</td>
+    </tr>)}</tbody></table>
+  </div>
+}
+
+// ========== RISK PAGE ==========
+function RiskPage({risk:r}){
+  r=r||MOCK.risk;
+  const bars=[
+    {name:'Risk per Trade',v:r.limits.maxRiskPerTradePct,mx:1,unit:'%'},
+    {name:'Total Exposure',v:r.currentExposurePct,mx:r.limits.maxExposurePct,unit:'%'},
+    {name:'Daily Drawdown',v:Math.abs(r.todayDrawdownPct),mx:r.limits.dailyMaxDrawdownPct,unit:'%'},
+    {name:'Hourly Trades',v:r.hourTradeCount,mx:r.limits.maxTradesPerHour,unit:''},
+    {name:'Daily Trades',v:r.todayTradeCount,mx:r.limits.maxTradesPerDay,unit:''},
+    {name:'Consec. Losses',v:r.consecutiveLosses,mx:r.limits.maxConsecutiveLosses,unit:''},
+  ];
+  return <div className="fi">
+    <div className="sh">🛡️ Risk & Limits</div><div className="ss">Current risk utilization. If any limit is breached, the bot auto-halts.</div>
+    <div className="card">
+      <div className="card-t">Limit Utilization</div>
+      {bars.map((b,i)=>{const pct=Math.min(100,(b.v/b.mx)*100);const c=pct>80?'var(--red)':pct>50?'var(--amb)':'var(--grn)';return <div key={i} className="rbar">
+        <span className="rbar-name">{b.name}</span>
+        <div className="rbar-gauge"><div className="rbar-fill" style={{width:pct+'%',background:c}}/></div>
+        <span className="rbar-val" style={{color:c}}>{typeof b.v==='number'&&b.v%1!==0?b.v.toFixed(2):b.v}{b.unit} / {b.mx}{b.unit}</span>
+      </div>})}
+    </div>
+    <div className="g2">
+      <div className="card"><div className="card-t">⚙️ Active Limits</div>
+        <div style={{fontSize:12,color:'var(--t2)',lineHeight:2}}>
+          <div>Max risk per trade: <b>{r.limits.maxRiskPerTradePct}%</b> of equity</div>
+          <div>Max total exposure: <b>{r.limits.maxExposurePct}%</b> of equity</div>
+          <div>Daily drawdown kill switch: <b>{r.limits.dailyMaxDrawdownPct}%</b></div>
+          <div>Max trades/hour: <b>{r.limits.maxTradesPerHour}</b> · /day: <b>{r.limits.maxTradesPerDay}</b></div>
+          <div>Pause after: <b>{r.limits.maxConsecutiveLosses}</b> consecutive losses</div>
+        </div>
+      </div>
+      <div className="card"><div className="card-t">📜 What happens on breach</div>
+        <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.8}}>
+          <div><b style={{color:'var(--red)'}}>Daily drawdown breach:</b> All trading halts for 24 hours. Open positions maintained.</div>
+          <div><b style={{color:'var(--amb)'}}>Consecutive loss limit:</b> New entries paused. Existing positions still monitored.</div>
+          <div><b style={{color:'var(--amb)'}}>Exposure/trade limits:</b> New entries blocked until utilization drops below limit.</div>
+          <div><b style={{color:'var(--red)'}}>Kill switch:</b> Immediate halt. Manual reactivation required.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+// ========== HEALTH PAGE ==========
+function Health({incidents:inc}){
+  inc=inc||MOCK.incidents;
+  return <div className="fi">
+    <div className="sh">🏥 Health & Incidents</div><div className="ss">System health monitoring and incident timeline.</div>
+    <div className="g3" style={{marginBottom:14}}>
+      <div className="met"><div className="met-l">RPC Latency</div><div className="met-v grn">~240ms</div><div className="met-s">Healthy</div></div>
+      <div className="met"><div className="met-l">WS Connected</div><div className="met-v grn">Yes</div><div className="met-s">Simulation mode</div></div>
+      <div className="met"><div className="met-l">Error Rate</div><div className="met-v grn">2%</div><div className="met-s">Last 100 requests</div></div>
+    </div>
+    <div className="card"><div className="card-t">📋 Incident Timeline</div>
+      {inc.map(x=><div key={x.id} className={'alrt '+(x.severity==='CRITICAL'?'crit':x.severity==='WARNING'?'warn':'info')} style={{opacity:x.resolved?.7:1}}>
+        <span>{x.severity==='CRITICAL'?'⛔':x.severity==='WARNING'?'⚠️':'ℹ️'}</span>
+        <div><div style={{fontWeight:600,marginBottom:2}}>{x.message}</div>
+          <div style={{fontSize:10,opacity:.7}}>{new Date(x.timestamp).toLocaleString()} · {x.category}{x.autoAction&&' · Auto: '+x.autoAction}{x.resolved&&' · ✓ Resolved'}</div>
+        </div>
+      </div>)}
+      {inc.length===0&&<div style={{color:'var(--t3)',textAlign:'center',padding:20}}>No incidents. Clean operations.</div>}
+    </div>
+  </div>
+}
+
+// ========== PAPER STATS PAGE ==========
+function PaperPage(){
+  const stats={totalTrades:7,winningTrades:3,losingTrades:4,winRate:.43,totalPnlSol:-0.13,avgPnlPerTrade:-0.019,maxDrawdownPct:1.8,avgSlippageBps:145,avgHoldTimeMinutes:12,expectancy:-0.002};
+  return <div className="fi">
+    <div className="sh">📝 Paper Trading Stats</div><div className="ss">Performance metrics from simulated trading. Paper mode uses realistic slippage and failure simulation.</div>
+    <div className="g4" style={{marginBottom:14}}>
+      <div className="met"><div className="met-l">Total Trades</div><div className="met-v">{stats.totalTrades}</div></div>
+      <div className="met"><div className="met-l">Win Rate</div><div className="met-v" style={{color:stats.winRate>=.5?'var(--grn)':'var(--amb)'}}>{(stats.winRate*100).toFixed(0)}%</div><div className="met-s">{stats.winningTrades}W / {stats.losingTrades}L</div></div>
+      <div className="met"><div className="met-l">Total P&L</div><div className="met-v" style={{color:stats.totalPnlSol>=0?'var(--grn)':'var(--red)'}}>{stats.totalPnlSol.toFixed(4)}</div><div className="met-s">SOL</div></div>
+      <div className="met"><div className="met-l">Expectancy</div><div className="met-v" style={{color:stats.expectancy>=0?'var(--grn)':'var(--red)'}}>{stats.expectancy.toFixed(4)}</div><div className="met-s">SOL per trade</div></div>
+    </div>
+    <div className="g2">
+      <div className="met"><div className="met-l">Max Drawdown</div><div className="met-v red">{stats.maxDrawdownPct.toFixed(1)}%</div></div>
+      <div className="met"><div className="met-l">Avg Slippage</div><div className="met-v">{stats.avgSlippageBps}bps</div><div className="met-s">{(stats.avgSlippageBps/100).toFixed(1)}%</div></div>
+    </div>
+    <div className="card" style={{marginTop:14}}><div className="card-t">ℹ️ Note</div>
+      <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.7}}>Paper trading simulates 1.5× worse slippage, 5% tx failure rate, and ~500ms latency. Past paper performance does not predict live results. Review these stats carefully before considering live trading.</div>
+    </div>
+  </div>
+}
+
+// ========== SETTINGS PAGE ==========
+function Settings({mode,onArmLive}){
+  return <div className="fi">
+    <div className="sh">⚙️ Settings</div><div className="ss">Configuration and mode control. Changes are applied immediately.</div>
+    <div className="card">
+      <div className="card-t">🔒 Trading Mode</div>
+      <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:14}}>
+        <div className={'mpill '+(mode==='PAPER'?'paper':'live')} style={{fontSize:14}}><div className={'mdot '+(mode==='PAPER'?'paper':'live')}/>{mode}</div>
+        {mode==='PAPER'&&<button className="btn btn-d" onClick={onArmLive}>Arm Live Mode →</button>}
+        {mode==='LIVE'&&<button className="btn btn-g" onClick={()=>{}}>Switch to Paper</button>}
+      </div>
+      {mode==='PAPER'&&<div className="alrt info">ℹ️ You are in PAPER mode. All trades are simulated. No real funds at risk.</div>}
+      {mode==='LIVE'&&<div className="alrt crit">⛔ LIVE MODE ACTIVE. Real funds will be used for trades. Be cautious.</div>}
+    </div>
+    <div className="card"><div className="card-t">📐 Strategy Parameters</div>
+      <div style={{fontSize:12,color:'var(--t2)',lineHeight:2}}>
+        <div>Risk per trade: <b>0.20%</b> · Max exposure: <b>1.0%</b></div>
+        <div>Stop loss: <b>-25%</b> · Take profit: <b>+50% (30%), +100% (30%)</b></div>
+        <div>Trailing stop: <b>15%</b> · Time stop: <b>60 min</b></div>
+        <div>Regime threshold: <b>40/100</b> · Min liquidity: <b>5 SOL</b></div>
+        <div>Max top-10 concentration: <b>70%</b> · Min buyers/min: <b>3</b></div>
+      </div>
+      <button className="btn btn-g" style={{marginTop:10}}>Reset to Safe Defaults</button>
+    </div>
+  </div>
+}
+
+// ========== LOGS PAGE ==========
+function Logs(){
+  const logs=[
+    {t:Date.now()-1000,msg:'[STRATEGY] Evaluating MOONCAT: all 13 filters PASS → TRADE',c:'grn'},
+    {t:Date.now()-3000,msg:'[PAPER] Buy order executed: 0.0200 SOL → 16666 MOONCAT (120bps slip)',c:'blu'},
+    {t:Date.now()-5000,msg:'[STRATEGY] Evaluating SHIBX: FAIL (liquidity 2.1 SOL < 5.0)',c:'t3'},
+    {t:Date.now()-8000,msg:'[REGIME] Score: 52/100 (NORMAL) — 8 launches, 45 SOL vol in 5min',c:'blu'},
+    {t:Date.now()-12000,msg:'[RISK] Drawdown check: -1.30% (limit: 2.00%) ✓',c:'t2'},
+    {t:Date.now()-20000,msg:'[INGEST] New token: PEPEMOON (mint: pepemoon1k…) phase: BONDING_CURVE',c:'t2'},
+    {t:Date.now()-25000,msg:'[INGEST] Graduation: BONKINU → Raydium pool created',c:'amb'},
+    {t:Date.now()-30000,msg:'[STRATEGY] Evaluating BONKINU: FAIL (concentration 82% > 70%)',c:'t3'},
+    {t:Date.now()-45000,msg:'[HEALTH] RPC latency: 240ms, error rate: 2%, WS: connected',c:'t2'},
+    {t:Date.now()-60000,msg:'[BOOT] All services started. PAPER mode. Monitoring...',c:'blu'},
+  ];
+  return <div className="fi">
+    <div className="sh">📜 Logs</div><div className="ss">Human-readable activity log.</div>
+    <div className="card" style={{fontFamily:'var(--mono)',fontSize:11,lineHeight:1.9,maxHeight:500,overflowY:'auto'}}>
+      {logs.map((l,i)=><div key={i} style={{color:'var(--'+l.c+')'}}>
+        <span style={{color:'var(--t3)',marginRight:8}}>{new Date(l.t).toLocaleTimeString()}</span>{l.msg}
+      </div>)}
+    </div>
+  </div>
+}
+
+// ========== ARMING MODAL ==========
+function ArmModal({onClose,onConfirm}){
+  const[txt,setTxt]=useState('');
+  const[step,setStep]=useState(0); // 0=checklist, 1=type, 2=countdown
+  const[count,setCount]=useState(10);
+  const ref=useRef(null);
+
+  useEffect(()=>{
+    if(step===2){
+      ref.current=setInterval(()=>setCount(c=>{if(c<=1){clearInterval(ref.current);onConfirm();return 0}return c-1}),1000);
+      return()=>clearInterval(ref.current);
+    }
+  },[step]);
+
+  return <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal">
+      {step===0&&<>
+        <h2 style={{color:'var(--red)'}}>⚠️ Switch to LIVE Trading</h2>
+        <div style={{fontSize:13,color:'var(--t2)',lineHeight:1.8,marginBottom:16}}>
+          <div>Before switching, confirm:</div>
+          <div style={{marginTop:8}}>☑ I have reviewed my paper trading results</div>
+          <div>☑ I have confirmed my wallet balance</div>
+          <div>☑ I have set conservative risk limits</div>
+          <div>☑ I understand real funds will be at risk</div>
+          <div>☑ I am using a dedicated trading wallet</div>
+        </div>
+        <div style={{display:'flex',gap:10}}><button className="btn btn-d" onClick={()=>setStep(1)}>I Confirm All ↑</button><button className="btn btn-g" onClick={onClose}>Cancel</button></div>
+      </>}
+      {step===1&&<>
+        <h2 style={{color:'var(--red)'}}>Type Confirmation</h2>
+        <div style={{fontSize:13,color:'var(--t2)'}}>Type <b>TRADE LIVE</b> exactly to proceed:</div>
+        <input value={txt} onChange={e=>setTxt(e.target.value)} placeholder="Type TRADE LIVE" autoFocus/>
+        <div style={{display:'flex',gap:10}}><button className="btn btn-d" disabled={txt!=='TRADE LIVE'} onClick={()=>setStep(2)} style={{opacity:txt==='TRADE LIVE'?1:.4}}>Proceed</button><button className="btn btn-g" onClick={onClose}>Cancel</button></div>
+      </>}
+      {step===2&&<>
+        <h2 style={{color:'var(--red)'}}>⏳ Countdown</h2>
+        <div style={{fontSize:48,fontFamily:'var(--mono)',fontWeight:700,textAlign:'center',color:'var(--red)',margin:'20px 0'}}>{count}</div>
+        <div style={{textAlign:'center',fontSize:13,color:'var(--t2)',marginBottom:16}}>Switching to LIVE mode in {count} seconds...</div>
+        <div style={{textAlign:'center'}}><button className="btn btn-g" onClick={()=>{clearInterval(ref.current);onClose()}}>CANCEL</button></div>
+      </>}
+    </div>
+  </div>
+}
+
+// ========== MAIN APP ==========
+function App(){
+  const[page,setPage]=useState('overview');
+  const[mode,setMode]=useState('PAPER');
+  const[botState,setBotState]=useState('RUNNING');
+  const[showArm,setShowArm]=useState(false);
+  const[risk,setRisk]=useState(MOCK.risk);
+  const[regime,setRegime]=useState(MOCK.regime);
+  const[decisions,setDecisions]=useState(MOCK.decisions);
+  const[positions,setPositions]=useState(MOCK.positions);
+  const[orders,setOrders]=useState(MOCK.orders);
+  const[incidents,setIncidents]=useState(MOCK.incidents);
+
+  // Try connecting to real backend
+  useEffect(()=>{
+    const poll=async()=>{
+      try{
+        const r=await fetch(API+'/status');const j=await r.json();
+        if(j.ok){setMode(j.data.mode);setBotState(j.data.botState);if(j.data.risk)setRisk(j.data.risk);if(j.data.regime)setRegime(j.data.regime)}
+      }catch{}
+      try{const r=await fetch(API+'/decisions?limit=20');const j=await r.json();if(j.ok&&j.data?.length)setDecisions(j.data)}catch{}
+      try{const r=await fetch(API+'/positions');const j=await r.json();if(j.ok)setPositions(j.data)}catch{}
+      try{const r=await fetch(API+'/orders?limit=20');const j=await r.json();if(j.ok&&j.data?.length)setOrders(j.data)}catch{}
+      try{const r=await fetch(API+'/incidents');const j=await r.json();if(j.ok&&j.data?.length)setIncidents(j.data)}catch{}
+    };
+    poll();const id=setInterval(poll,5000);return()=>clearInterval(id);
+  },[]);
+
+  const killSwitch=async()=>{
+    if(!confirm('Activate KILL SWITCH? This blocks all new orders immediately.'))return;
+    try{await fetch(API+'/kill-switch',{method:'POST'})}catch{}
+    setBotState('HALTED');setRisk(r=>({...r,isHalted:true,haltReason:'Manual kill switch'}));
+  };
+
+  const armLive=()=>{
+    setMode('LIVE');setShowArm(false);
+    try{fetch(API+'/mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'LIVE',confirmation:'TRADE LIVE'})})}catch{}
+  };
+
+  const pages={overview:<Overview risk={risk} regime={regime} decisions={decisions} positions={positions}/>,
+    radar:<Radar decisions={decisions}/>,positions:<Positions positions={positions}/>,
+    orders:<Orders orders={orders}/>,risk:<RiskPage risk={risk}/>,
+    health:<Health incidents={incidents}/>,paper:<PaperPage/>,
+    settings:<Settings mode={mode} onArmLive={()=>setShowArm(true)}/>,logs:<Logs/>};
+
+  return <div className="app">
+    <SBar mode={mode} state={botState} risk={risk} onKill={killSwitch}/>
+    <div className="main">
+      <Side act={page} onNav={setPage} mode={mode}/>
+      <div className="content">{pages[page]||<Overview risk={risk} regime={regime}/>}</div>
+    </div>
+    {showArm&&<ArmModal onClose={()=>setShowArm(false)} onConfirm={armLive}/>}
+  </div>
+}
+
+ReactDOM.render(<App/>,document.getElementById('root'));
+</script>
+</body>
+</html>
